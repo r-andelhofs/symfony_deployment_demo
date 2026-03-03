@@ -38,9 +38,27 @@ pipeline {
 
         stage('Build & Migrations') {
             steps {
+                //script {
+                //    // Build your Symfony Image
+                //    def symfonyImage = docker.build("${APP_NAME}:latest")
+                //    
+                //    // Fix permissions for Symfony
+                //    sh """
+                //    docker run --rm --network ${NET_NAME} --volume ".:/var/www/html" \
+                //        ${APP_NAME}:latest chown -R www-data:www-data /var/www/html
+                //    """
+                //}
                 script {
                     // Build your Symfony Image
                     def symfonyImage = docker.build("${APP_NAME}:latest")
+                    
+                    // Fix permissions for Symfony
+                    sh """
+                    docker run --rm --network ${NET_NAME} --volume ".:/var/www/html" \
+                        ${APP_NAME}:latest composer update
+                    """
+                }
+                script {
                     
                     // Fix permissions for Symfony
                     sh """
