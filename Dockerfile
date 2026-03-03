@@ -1,7 +1,7 @@
 FROM php:8.3-fpm-alpine
 
 # Install system dependencies
-RUN apk add --no-network --no-cache \
+RUN apk add --no-cache \
     icu-dev libzip-dev zlib-dev bash
 
 # Install PHP extensions
