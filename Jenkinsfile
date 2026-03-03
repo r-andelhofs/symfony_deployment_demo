@@ -29,6 +29,7 @@ pipeline {
                     -e MYSQL_DATABASE=${DB_DATABASE} \
                     -e MYSQL_USER=${DB_USER} \
                     -e MYSQL_PASSWORD=${DB_PASS} \
+                    -v data/database.sql:/docker-entrypoint-initdb.d/dump.sql:ro \
                     mysql:8.0
                 """
                 echo "Waiting for MySQL to initialize..."
