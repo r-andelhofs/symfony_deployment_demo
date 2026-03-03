@@ -38,43 +38,16 @@ pipeline {
 
         stage('Build & Migrations') {
             steps {
-                //script {
-                //    // Build your Symfony Image
-                //    def symfonyImage = docker.build("${APP_NAME}:latest")
-                //    
-                //    // Fix permissions for Symfony
-                //    sh """
-                //    docker run --rm --network ${NET_NAME} --volume ".:/var/www/html" \
-                //        ${APP_NAME}:latest chown -R www-data:www-data /var/www/html
-                //    """
-                //}
                 script {
                     // Build your Symfony Image
                     def symfonyImage = docker.build("${APP_NAME}:latest")
                     
                     // Fix permissions for Symfony
                     sh """
-                    docker run --rm --network ${NET_NAME} --volume ".:/var/www/html" \
+                    docker run --rm --network ${NET_NAME} --volume ".:/var/www/html" --user $(id -u):$(id -g) \
                         ${APP_NAME}:latest composer update
                     """
                 }
-                script {
-                    
-                    // Fix permissions for Symfony
-                    sh """
-                    docker run --rm --network ${NET_NAME} --volume ".:/var/www/html" \
-                        ${APP_NAME}:latest chown -R www-data:www-data /var/www/html
-                    """
-                }
-                //script {
-                //    
-                //    // Run Migrations inside the network before starting the web server
-                //    sh """
-                //    docker run --rm --network ${NET_NAME} --volume ".:/var/www/html" \
-                //        -e DATABASE_URL="mysql://${DB_USER}:${DB_PASS}@${DB_NAME}:3306/${DB_DATABASE}?serverVersion=8.0" \
-                //        ${APP_NAME}:latest php bin/console doctrine:migrations:migrate --no-interaction
-                //    """
-                //}
             }
         }
 
@@ -82,7 +55,7 @@ pipeline {
             steps {
                 // Run the web server
                 sh """
-                docker run -d --name ${APP_NAME} --volume ".:/var/www/html" --network ${NET_NAME} -p ${TEST_PORT}:8000 \
+                docker run -d --name ${APP_NAME} --volume ".:/var/www/html" --user $(id -u):$(id -g) --network ${NET_NAME} -p ${TEST_PORT}:8000 \
                     -e DATABASE_URL="mysql://${DB_USER}:${DB_PASS}@${DB_NAME}:3306/${DB_DATABASE}?serverVersion=8.0" \
                     ${APP_NAME}:latest php -S 0.0.0.0:8000 -t public
                 """
