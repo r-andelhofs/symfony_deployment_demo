@@ -43,7 +43,7 @@ pipeline {
                     def symfonyImage = docker.build("${APP_NAME}:latest")
                     def uId = sh(script: 'id -u', returnStdout: true).trim()
                     def gId = sh(script: 'id -g', returnStdout: true).trim()
-                    
+
                     // Fix permissions for Symfony
                     sh """
                     docker run --rm --network ${NET_NAME} --volume ".:/var/www/html" --user ${uId}:${gId} \
@@ -55,19 +55,21 @@ pipeline {
 
         stage('Deploy Ephemeral App') {
             steps {
-                def uId = sh(script: 'id -u', returnStdout: true).trim()
-                def gId = sh(script: 'id -g', returnStdout: true).trim()
-                // Run the web server
-                sh """
-                docker run -d --name ${APP_NAME} --volume ".:/var/www/html" --user ${uId}:${gId} --network ${NET_NAME} -p ${TEST_PORT}:8000 \
-                    -e DATABASE_URL="mysql://${DB_USER}:${DB_PASS}@${DB_NAME}:3306/${DB_DATABASE}?serverVersion=8.0" \
-                    ${APP_NAME}:latest php -S 0.0.0.0:8000 -t public
-                """
-                
-                echo "------------------------------------------------------------"
-                echo "SUCCESS: Symfony is live at http://your-server-ip:${TEST_PORT}"
-                echo "Database Host inside network: ${DB_NAME}"
-                echo "------------------------------------------------------------"
+                script{
+                    def uId = sh(script: 'id -u', returnStdout: true).trim()
+                    def gId = sh(script: 'id -g', returnStdout: true).trim()
+                    // Run the web server
+                    sh """
+                    docker run -d --name ${APP_NAME} --volume ".:/var/www/html" --user ${uId}:${gId} --network ${NET_NAME} -p ${TEST_PORT}:8000 \
+                        -e DATABASE_URL="mysql://${DB_USER}:${DB_PASS}@${DB_NAME}:3306/${DB_DATABASE}?serverVersion=8.0" \
+                        ${APP_NAME}:latest php -S 0.0.0.0:8000 -t public
+                    """
+                    
+                    echo "------------------------------------------------------------"
+                    echo "SUCCESS: Symfony is live at http://your-server-ip:${TEST_PORT}"
+                    echo "Database Host inside network: ${DB_NAME}"
+                    echo "------------------------------------------------------------"
+                }
             }
         }
 
