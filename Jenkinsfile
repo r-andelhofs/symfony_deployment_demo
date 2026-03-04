@@ -16,6 +16,8 @@ pipeline {
         
         // Dynamic Port for the Web UI
         TEST_PORT  = "${9000 + (env.BUILD_NUMBER.toInteger() % 1000)}"
+
+        COOKBOOK_REPO = "git@github.com:level27/chef-repo.git"
     }
 
     stages {
@@ -80,24 +82,48 @@ pipeline {
 
         stage('External Integration Tests') {
             steps {
-                script {
-                    // Run a full Ubuntu 24.04 container to perform tests against the network
-                    sh """
-                    docker run -dit --name ${TEST_RUNNER} --network ${NET_NAME} ubuntu:24.04 bash <<'EOF'
-                        set -e
-                        apt-get update && apt-get install -y curl netcat-openbsd
-                        
-                        echo "Checking if RabbitMQ is reachable..." >> /proc/1/fd/1
-                        nc -zv ${RABBIT_NAME} 5672
-                        
-                        echo "Checking if Symfony App is responding..." >> /proc/1/fd/1
-                        curl -f http://${APP_NAME}:8000/health || (echo 'App Unreachable' && exit 1)
-                        
-                        echo "Running custom external test scripts..." >> /proc/1/fd/1
-                        # Add your custom logic here
-                        echo "Integration tests passed!" >> /proc/1/fd/1
+                withCredentials([string(credentialsId: 'GITHUB_SSH_KEY', variable: 'SSH_KEY')]) {
+                    script {
+                        // Run a full Ubuntu 24.04 container to perform tests against the network
+                        sh """
+                        docker run -dit --name ${TEST_RUNNER} --network ${NET_NAME} \
+                        -e SSH_KEY="${SSH_KEY}" ubuntu:24.04
+                        """
+
+                        sh """
+                        docker exec -i ${TEST_RUNNER} bash <<'EOF'
+                            set -e
+                            echo "--- 1. Installing System Dependencies ---"
+                            apt-get update && apt-get install -y curl git ssh-client
+
+                            echo "--- 2. Setting up SSH for Private Repo ---"
+                            mkdir -p ~/.ssh
+                            echo "${SSH_KEY}" > ~/.ssh/id_rsa
+                            chmod 600 ~/.ssh/id_rsa
+                            ssh-keyscan github.com >> ~/.ssh/known_hosts
+
+                            echo "--- 3. Installing Chef (Cinc-Client) ---"
+                            # Cinc is the fully open-source distribution of Chef Infra Client
+                            curl -L https://omnitruck.cinc.sh/install.sh | bash
+
+                            echo "--- 4. Cloning Private Cookbooks ---"
+                            git clone ${COOKBOOK_REPO} /tmp/chef-repo
+                            cd /tmp/chef-repo
+                            git checkout develop
+
+                            echo "--- 5. Executing Chef-Solo ---"
+                            # We create a minimal dna.json to tell Chef what to run
+                            echo '{"run_list": ["recipe[my_test_suite::default]"]}' > /tmp/dna.json
+                            
+                            # Run Chef
+                            cinc-solo -j /tmp/dna.json --base-repo-path /tmp/chef-repo
+
+                            echo "--- 6. Running Application Tests ---"
+                            # Now that Chef has configured the environment (installed tools, etc.)
+                            curl -f http://${APP_NAME}:8000/health
 EOF
-                    """
+                        """
+                    }
                 }
             }
         }
