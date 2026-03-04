@@ -66,7 +66,7 @@ pipeline {
                     """
                     
                     echo "------------------------------------------------------------"
-                    echo "SUCCESS: Symfony is live at http://your-server-ip:${TEST_PORT}"
+                    echo "SUCCESS: Symfony is live at http://172.23.21.16:${TEST_PORT}"
                     echo "Database Host inside network: ${DB_NAME}"
                     echo "------------------------------------------------------------"
                 }
@@ -76,7 +76,7 @@ pipeline {
         stage('Manual Review') {
             steps {
                 // This will pause the pipeline and wait for a user to click "Proceed" or "Abort"
-                input message: "Review the application at http://your-server-ip:${TEST_PORT}. Click 'Proceed' to kill the environment.", ok: "Proceed"
+                input message: "Review the application at http://172.23.21.16:${TEST_PORT}. Click 'Proceed' to kill the environment.", ok: "Proceed"
             }
         }
     }
