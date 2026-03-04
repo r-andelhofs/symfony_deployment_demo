@@ -29,7 +29,6 @@ pipeline {
                     -e MYSQL_DATABASE=${DB_DATABASE} \
                     -e MYSQL_USER=${DB_USER} \
                     -e MYSQL_PASSWORD=${DB_PASS} \
-                    -v "${WORKSPACE}/data/database.sql:/docker-entrypoint-initdb.d/dump.sql:ro" \
                     mysql:8.0
                 """
                 echo "Waiting for MySQL to initialize..."
@@ -48,7 +47,7 @@ pipeline {
                     // Fix permissions for Symfony
                     sh """
                     docker run --rm --network ${NET_NAME} --volume ".:/var/www/html" --user ${uId}:${gId} \
-                        ${APP_NAME}:latest composer update
+                        ${APP_NAME}:latest bash -c "composer update && php bin/console doctrine:schema:create && php bin/console doctrine:fixtures:load --append"
                     """
                 }
             }
