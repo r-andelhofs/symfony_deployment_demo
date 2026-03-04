@@ -83,19 +83,19 @@ pipeline {
                 script {
                     // Run a full Ubuntu 24.04 container to perform tests against the network
                     sh """
-                    docker run -d --name ${TEST_RUNNER} --network ${NET_NAME} ubuntu:24.04 bash <<'EOF'
+                    docker run -dit --name ${TEST_RUNNER} --network ${NET_NAME} ubuntu:24.04 bash <<'EOF'
                         set -e
                         apt-get update && apt-get install -y curl netcat-openbsd
                         
-                        echo "Checking if RabbitMQ is reachable..."
+                        echo "Checking if RabbitMQ is reachable..." >> /proc/1/fd/1
                         nc -zv ${RABBIT_NAME} 5672
                         
-                        echo "Checking if Symfony App is responding..."
+                        echo "Checking if Symfony App is responding..." >> /proc/1/fd/1
                         curl -f http://${APP_NAME}:8000/health || (echo 'App Unreachable' && exit 1)
                         
-                        echo "Running custom external test scripts..."
+                        echo "Running custom external test scripts..." >> /proc/1/fd/1
                         # Add your custom logic here
-                        echo "Integration tests passed!"
+                        echo "Integration tests passed!" >> /proc/1/fd/1
 EOF
                     """
                 }
