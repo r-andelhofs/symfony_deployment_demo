@@ -5,7 +5,9 @@ pipeline {
         // Unique identifiers for this specific build
         NET_NAME   = "net-${env.BUILD_ID}"
         DB_NAME    = "db-${env.BUILD_ID}"
+        RABBIT_NAME = "mq-${env.BUILD_ID}"
         APP_NAME   = "app-${env.BUILD_ID}"
+        TEST_RUNNER = "tester-${env.BUILD_ID}"
         
         // Database Credentials
         DB_USER     = "symfony"
@@ -21,6 +23,9 @@ pipeline {
             steps {
                 // Create a dedicated network so containers can "see" each other
                 sh "docker network create ${NET_NAME}"
+
+                // Start RabbitMQ (Management plugin included for debugging if needed)
+                sh "docker run -d --name ${RABBIT_NAME} --network ${NET_NAME} rabbitmq:3-management"
                 
                 // Spin up MySQL and wait for it to be ready
                 sh """
@@ -73,6 +78,30 @@ pipeline {
             }
         }
 
+        stage('External Integration Tests') {
+            steps {
+                script {
+                    // Run a full Ubuntu 24.04 container to perform tests against the network
+                    sh """
+                    docker run -d --name ${TEST_RUNNER} --network ${NET_NAME} ubuntu:24.04 bash <<'EOF'
+                        set -e
+                        apt-get update && apt-get install -y curl netcat-openbsd
+                        
+                        echo "Checking if RabbitMQ is reachable..."
+                        nc -zv ${RABBIT_NAME} 5672
+                        
+                        echo "Checking if Symfony App is responding..."
+                        curl -f http://${APP_NAME}:8000/health || (echo 'App Unreachable' && exit 1)
+                        
+                        echo "Running custom external test scripts..."
+                        # Add your custom logic here
+                        echo "Integration tests passed!"
+EOF
+                    """
+                }
+            }
+        }
+
         stage('Manual Review') {
             steps {
                 // This will pause the pipeline and wait for a user to click "Proceed" or "Abort"
@@ -85,8 +114,8 @@ pipeline {
         always {
             echo "Cleaning up ephemeral environment..."
             // Remove containers and the network regardless of success/failure/manual stop
-            sh "docker stop ${APP_NAME} ${DB_NAME} || true"
-            sh "docker rm ${APP_NAME} ${DB_NAME} || true"
+            sh "docker stop ${APP_NAME} ${DB_NAME} ${TEST_RUNNER} ${RABBIT_NAME} || true"
+            sh "docker rm ${APP_NAME} ${DB_NAME} ${TEST_RUNNER} ${RABBIT_NAME} || true"
             sh "docker network rm ${NET_NAME} || true"
             sh "docker rmi ${APP_NAME}:latest || true"
         }
