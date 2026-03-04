@@ -47,7 +47,7 @@ pipeline {
                     // Fix permissions for Symfony
                     sh """
                     docker run --rm --network ${NET_NAME} --volume ".:/var/www/html" --user ${uId}:${gId} \
-                        ${APP_NAME}:latest bash -c "composer update && php bin/console doctrine:schema:create && php bin/console doctrine:fixtures:load --append"
+                        ${APP_NAME}:latest bash -c "composer update && php bin/console doctrine:schema:update --force && php bin/console doctrine:fixtures:load --append"
                     """
                 }
             }
